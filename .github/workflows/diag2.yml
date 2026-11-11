@@ -1,0 +1,24 @@
+name: Diag2
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  d:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        run: |
+          python3 -m pip install --user shortcuts 2>&1 | tail -2
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Run diag
+        run: python3 diag.py
+      - name: Upload any produced
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-out
+          path: |
+            *.shortcut
+          if-no-files-found: ignore
