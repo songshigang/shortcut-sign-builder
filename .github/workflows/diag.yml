@@ -1,0 +1,45 @@
+name: Diag
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  d:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diag
+        run: |
+          echo "=== shortcuts CLI ==="
+          shortcuts --version 2>&1 | head -3
+          echo "=== files ==="
+          ls -la
+          echo "=== plutil lint ==="
+          plutil -lint *.plist 2>&1 | head -5
+          echo "=== plist 结构 ==="
+          python3 -c "
+          import plistlib
+          d=plistlib.load(open('推送健康数据.plist','rb'))
+          print('keys:', sorted(d.keys()))
+          print('actions:', len(d['WFWorkflowActions']))
+          a=d['WFWorkflowActions'][0]
+          print('action keys:', list(a.keys()))
+          print('params keys:', list(a['WFWorkflowActionParameters'].keys()))
+          "
+          echo "=== 试签 XML ==="
+          shortcuts sign -i "推送健康数据.plist" -o "out.shortcut" -m anyone -m anyone 2>&1 | head -8
+          echo "=== 转 binary plist 再签 ==="
+          plutil -convert binary1 "推送健康数据.plist" -o "bin.plist" 2>&1 | head -3
+          shortcuts sign -i "bin.plist" -o "out2.shortcut" -m anyone -m anyone 2>&1 | head -8
+          echo "=== 用 shortcuts-python 库试试 ==="
+          pip3 install shortcuts 2>&1 | tail -2
+          python3 -c "
+          from shortcuts import Shortcut
+          sc = Shortcut.load(open('推送健康数据.plist','rb'))
+          print('loaded ok, actions =', len(sc.actions))
+          sc.dump(open('rebuilt.shortcut','wb'))
+          print('dumped rebuilt.shortcut')
+          " 2>&1 | head -8
+          echo "=== 签 rebuilt ==="
+          shortcuts sign -i "rebuilt.shortcut" -o "out3.shortcut" -m anyone -m anyone 2>&1 | head -8
+          ls -la *.shortcut 2>&1
