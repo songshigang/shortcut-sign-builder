@@ -24,11 +24,10 @@ def try_sign(origin, referer, label):
         with urllib.request.urlopen(req, timeout=90) as r:
             data = r.read()
             print(f'[OK  ] {label}: HTTP {r.status}, {len(data)} bytes, magic={data[:4]!r}')
-            if data[:4] == b'AEA1':
-                open(OUT, 'wb').write(data)
-                print(f'        → 已写入 {OUT}')
-                return True
-            return False
+            fn = f'_hs_{label}.bin'
+            open(fn,'wb').write(data)
+            print(f'        → {fn}, 前 300 字节: {data[:300]!r}')
+            return True
     except urllib.error.HTTPError as e:
         print(f'[FAIL] {label}: HTTP {e.code} {e.read()[:120]}')
     except Exception as e:
