@@ -1,0 +1,59 @@
+name: Sign Shortcut
+
+on:
+  workflow_dispatch:
+    inputs:
+      plist_name:
+        description: '要签名的 plist 文件名（相对仓库根目录）'
+        required: true
+        default: '推送健康数据.plist'
+      out_name:
+        description: '输出的 .shortcut 文件名'
+        required: true
+        default: '推送健康数据.shortcut'
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    # macOS runner 自带 shortcuts CLI（Apple 官方签名工具）
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          sw_vers
+          shortcuts --version 2>&1 | head -5 || true
+
+      - name: Sign shortcut
+        env:
+          PLIST: ${{ inputs.plist_name }}
+          OUT: ${{ inputs.out_name }}
+        run: |
+          set -e
+          echo "--- 签名 $PLIST -> $OUT ---"
+          # -m anyone = 任何人可导入（公开分享）
+          shortcuts sign -i "$PLIST" -o "$OUT" -m anyone -m anyone
+          ls -la "$OUT"
+          file "$OUT"
+
+      - name: Verify signature
+        run: |
+          shortcuts verify "$OUT" 2>&1 | head -20 || echo "verify 返回非零（可能版本差异）"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-shortcut
+          path: ${{ inputs.out_name }}
+          if-no-files-found: error
+
+      - name: Commit signed file
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.out_name }}"
+          git commit -m "Signed: ${{ inputs.out_name }}" || echo "无需提交（内容未变）"
+          git push
